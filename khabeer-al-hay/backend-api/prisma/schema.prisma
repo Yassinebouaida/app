@@ -1,0 +1,259 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// User types enum
+enum UserType {
+  CLIENT
+  CRAFTSMAN
+  ADMIN
+}
+
+// Service request status
+enum RequestStatus {
+  PENDING
+  ACTIVE
+  COMPLETED
+  CANCELLED
+}
+
+// Offer status
+enum OfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
+// Payment status
+enum PaymentStatus {
+  PENDING
+  PAID
+  REFUNDED
+  FAILED
+}
+
+// Chat message types
+enum MessageType {
+  TEXT
+  IMAGE
+  LOCATION
+  SYSTEM
+}
+
+// User model - both clients and craftsmen
+model User {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  phone       String   @unique
+  password    String
+  firstName   String
+  lastName    String
+  avatar      String?
+  userType    UserType
+  isActive    Boolean  @default(true)
+  isVerified  Boolean  @default(false)
+  
+  // Location data
+  latitude    Float?
+  longitude   Float?
+  address     String?
+  city        String?
+  district    String?
+  
+  // Craftsman-specific fields
+  bio         String?
+  experience  Int?      // years of experience
+  hourlyRate  Float?
+  isAvailable Boolean   @default(true)
+  
+  // Relationships
+  specialties      UserSpecialty[]
+  clientRequests   ServiceRequest[] @relation("ClientRequests")
+  craftsmanOffers  Offer[]         @relation("CraftsmanOffers")
+  acceptedRequests ServiceRequest[] @relation("AcceptedRequests")
+  sentMessages     ChatMessage[]   @relation("MessageSender")
+  ratings          Rating[]        @relation("RatedUser")
+  givenRatings     Rating[]        @relation("RatingGiver")
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("users")
+}
+
+// Specialties/Categories (Electrician, Plumber, Carpenter, etc.)
+model Specialty {
+  id          String @id @default(cuid())
+  nameAr      String // Arabic name
+  nameEn      String // English name
+  description String?
+  icon        String? // Icon URL or name
+  isActive    Boolean @default(true)
+  
+  // Relationships
+  users    UserSpecialty[]
+  requests ServiceRequest[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("specialties")
+}
+
+// Junction table for user specialties
+model UserSpecialty {
+  id          String @id @default(cuid())
+  userId      String
+  specialtyId String
+  
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+
+  @@unique([userId, specialtyId])
+  @@map("user_specialties")
+}
+
+// Service requests from clients
+model ServiceRequest {
+  id          String        @id @default(cuid())
+  title       String
+  description String
+  images      String[]      // Array of image URLs
+  
+  // Location
+  latitude    Float
+  longitude   Float
+  address     String
+  
+  // Pricing
+  estimatedPrice Float?
+  finalPrice     Float?
+  
+  // Status and timing
+  status         RequestStatus @default(PENDING)
+  urgency        String?       // LOW, MEDIUM, HIGH
+  scheduledAt    DateTime?
+  completedAt    DateTime?
+  
+  // Relationships
+  clientId       String
+  client         User         @relation("ClientRequests", fields: [clientId], references: [id])
+  specialtyId    String
+  specialty      Specialty    @relation(fields: [specialtyId], references: [id])
+  
+  acceptedById   String?
+  acceptedBy     User?        @relation("AcceptedRequests", fields: [acceptedById], references: [id])
+  
+  offers         Offer[]
+  chats          Chat[]
+  rating         Rating?
+  payment        Payment?
+  
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  @@map("service_requests")
+}
+
+// Offers from craftsmen for service requests
+model Offer {
+  id          String      @id @default(cuid())
+  price       Float
+  description String
+  estimatedTime String?   // e.g., "2 hours", "1 day"
+  
+  status      OfferStatus @default(PENDING)
+  
+  // Relationships
+  requestId   String
+  request     ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  craftsmanId String
+  craftsman   User          @relation("CraftsmanOffers", fields: [craftsmanId], references: [id])
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("offers")
+}
+
+// Chat system for communication
+model Chat {
+  id        String @id @default(cuid())
+  
+  // Relationships
+  requestId String
+  request   ServiceRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  
+  messages  ChatMessage[]
+  
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("chats")
+}
+
+// Individual chat messages
+model ChatMessage {
+  id          String      @id @default(cuid())
+  content     String
+  messageType MessageType @default(TEXT)
+  isRead      Boolean     @default(false)
+  
+  // Relationships
+  chatId      String
+  chat        Chat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+  senderId    String
+  sender      User @relation("MessageSender", fields: [senderId], references: [id])
+  
+  createdAt   DateTime @default(now())
+
+  @@map("chat_messages")
+}
+
+// Rating system
+model Rating {
+  id          String @id @default(cuid())
+  rating      Int    // 1-5 stars
+  comment     String?
+  
+  // Relationships
+  requestId   String        @unique
+  request     ServiceRequest @relation(fields: [requestId], references: [id])
+  ratedUserId String        // The user being rated (craftsman)
+  ratedUser   User          @relation("RatedUser", fields: [ratedUserId], references: [id])
+  giverId     String        // The user giving the rating (client)
+  giver       User          @relation("RatingGiver", fields: [giverId], references: [id])
+  
+  createdAt   DateTime      @default(now())
+
+  @@map("ratings")
+}
+
+// Payment tracking
+model Payment {
+  id            String        @id @default(cuid())
+  amount        Float
+  status        PaymentStatus @default(PENDING)
+  paymentMethod String?       // CASH, CARD, ONLINE
+  transactionId String?       // External payment gateway transaction ID
+  
+  // Relationships
+  requestId     String        @unique
+  request       ServiceRequest @relation(fields: [requestId], references: [id])
+  
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@map("payments")
+}
