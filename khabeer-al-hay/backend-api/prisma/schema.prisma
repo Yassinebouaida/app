@@ -94,7 +94,7 @@ model User {
 model Specialty {
   id          String @id @default(cuid())
   nameAr      String // Arabic name
-  nameEn      String // English name
+  nameEn      String @unique // English name
   description String?
   icon        String? // Icon URL or name
   isActive    Boolean @default(true)
