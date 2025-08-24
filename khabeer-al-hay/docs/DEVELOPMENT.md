@@ -1,462 +1,498 @@
-# دليل التطوير | Development Guide
+# دليل التطوير - Development Guide
 
-## إعداد بيئة التطوير | Development Environment Setup
+دليل شامل لتطوير تطبيق خبير الحي
 
-### المتطلبات الأساسية | Prerequisites
+A comprehensive guide for developing the Khabeer Al-Hay application
 
-#### للخادم | Backend Requirements
-- **Node.js**: v18.0.0 أو أحدث
-- **npm**: v9.0.0 أو أحدث  
-- **PostgreSQL**: v14.0 أو أحدث
-- **Redis**: v7.0 أو أحدث (اختياري)
-- **Docker**: v20.0 أو أحدث (اختياري)
+## 🚀 البدء السريع | Quick Start
 
-#### للتطبيق المحمول | Mobile App Requirements
-- **Flutter**: v3.0.0 أو أحدث
-- **Dart**: v3.0.0 أو أحدث
-- **Android Studio** أو **VS Code** مع إضافات Flutter
-- **Android SDK** (للأندرويد)
-- **Xcode** (للـ iOS - macOS فقط)
+### المتطلبات | Prerequisites
+- **Node.js** 18+ 
+- **Flutter SDK** 3.0+
+- **Docker** & **Docker Compose**
+- **PostgreSQL** 15+ (optional for local development)
+- **Redis** 7+ (optional for local development)
 
-### الخطوة 1: استنساخ المشروع | Clone the Project
-
+### 1. استنساخ المشروع | Clone the Project
 ```bash
-git clone https://github.com/your-org/khabeer-al-hay.git
+git clone <repository-url>
 cd khabeer-al-hay
 ```
 
-### الخطوة 2: إعداد قاعدة البيانات | Database Setup
-
-#### استخدام PostgreSQL المحلي | Local PostgreSQL
+### 2. تشغيل البيئة | Start Environment
 ```bash
-# إنشاء قاعدة البيانات
-createdb khabeer_al_hay
+# Using Makefile (recommended)
+make dev
 
-# أو باستخدام psql
-psql -U postgres
-CREATE DATABASE khabeer_al_hay;
-\q
+# Or using the startup script
+./start.sh start
+
+# Or manually with Docker Compose
+docker-compose up -d
 ```
 
-#### استخدام Docker | Using Docker
+### 3. إعداد قاعدة البيانات | Database Setup
 ```bash
-docker run --name khabeer-postgres \
-  -e POSTGRES_DB=khabeer_al_hay \
-  -e POSTGRES_USER=postgres \
-  -e POSTGRES_PASSWORD=password \
-  -p 5432:5432 \
-  -d postgres:15-alpine
+# Automatic setup (recommended)
+make setup-db
+
+# Manual setup
+docker exec khabeer_backend npm run prisma:migrate
+docker exec khabeer_backend npm run prisma:generate
 ```
 
-### الخطوة 3: إعداد الخادم | Backend Setup
+### 4. الوصول للتطبيقات | Access Applications
+- **Backend API**: http://localhost:3000
+- **GraphQL Playground**: http://localhost:3000/graphql
+- **Mobile Web App**: http://localhost:8080
+- **Admin Dashboard**: http://localhost:3001
+- **Grafana**: http://localhost:3002 (admin/admin123)
 
+## 🏗️ هيكل المشروع | Project Structure
+
+```
+khabeer-al-hay/
+├── backend-api/                 # NestJS Backend
+│   ├── src/
+│   │   ├── auth/               # Authentication module
+│   │   ├── users/              # User management
+│   │   ├── specialties/        # Craftsman specialties
+│   │   ├── requests/           # Service requests
+│   │   ├── offers/             # Price offers
+│   │   ├── chat/               # Real-time messaging
+│   │   ├── ratings/            # Rating system
+│   │   ├── payments/           # Payment processing
+│   │   ├── admin/              # Admin panel
+│   │   └── common/             # Shared utilities
+│   ├── prisma/                 # Database schema & migrations
+│   ├── test/                   # Test files
+│   └── package.json
+├── mobile-app/                  # Flutter Mobile App
+│   ├── lib/
+│   │   ├── screens/            # UI Screens
+│   │   ├── widgets/            # Reusable widgets
+│   │   ├── services/           # API services
+│   │   ├── models/             # Data models
+│   │   ├── providers/          # State management
+│   │   └── utils/              # Helper functions
+│   ├── assets/                 # Images, fonts, etc.
+│   └── pubspec.yaml
+├── deployment/                  # Docker & deployment configs
+├── docs/                       # Documentation
+└── docker-compose.yml          # Development environment
+```
+
+## 🔧 التطوير المحلي | Local Development
+
+### Backend Development
+
+#### 1. إعداد البيئة | Environment Setup
 ```bash
 cd backend-api
 
-# تثبيت التبعيات
+# Install dependencies
 npm install
 
-# نسخ ملف البيئة
+# Copy environment file
 cp .env.example .env
 
-# تحرير متغيرات البيئة
-nano .env
+# Update environment variables
+# Edit .env file with your local settings
 ```
 
-#### تحديث ملف `.env`:
-```env
-DATABASE_URL="postgresql://postgres:password@localhost:5432/khabeer_al_hay?schema=public"
-JWT_SECRET="your-super-secret-jwt-key-change-in-production"
-JWT_EXPIRES_IN="7d"
-PORT=3000
-NODE_ENV="development"
-```
-
-#### تشغيل المايجريشن وإنشاء البيانات الأساسية:
+#### 2. قاعدة البيانات المحلية | Local Database
 ```bash
-# إنشاء وتشغيل المايجريشن
-npx prisma migrate dev --name init
+# Start PostgreSQL locally
+docker run -d \
+  --name postgres-local \
+  -e POSTGRES_DB=khabeer_al_hay \
+  -e POSTGRES_USER=khabeer_user \
+  -e POSTGRES_PASSWORD=khabeer_password \
+  -p 5432:5432 \
+  postgres:15-alpine
 
-# إنشاء Prisma Client
-npx prisma generate
-
-# إضافة البيانات الأساسية (التخصصات)
-npm run seed
+# Start Redis locally
+docker run -d \
+  --name redis-local \
+  -p 6379:6379 \
+  redis:7-alpine
 ```
 
-#### تشغيل الخادم:
+#### 3. تشغيل الخادم | Run Server
 ```bash
-# وضع التطوير (مع إعادة التشغيل التلقائي)
+# Development mode with hot reload
 npm run start:dev
 
-# أو الوضع العادي
-npm start
+# Production build
+npm run build
+npm run start:prod
+
+# Debug mode
+npm run start:debug
 ```
 
-الخادم سيعمل على: http://localhost:3000
-GraphQL Playground: http://localhost:3000/graphql
+#### 4. قاعدة البيانات | Database Operations
+```bash
+# Generate Prisma client
+npm run prisma:generate
 
-### الخطوة 4: إعداد التطبيق المحمول | Mobile App Setup
+# Run migrations
+npm run prisma:migrate
 
+# Reset database
+npm run prisma:migrate:reset
+
+# Open Prisma Studio
+npm run prisma:studio
+
+# Seed database
+npm run prisma:db:seed
+```
+
+### Mobile App Development
+
+#### 1. إعداد البيئة | Environment Setup
 ```bash
 cd mobile-app
 
-# تثبيت التبعيات
+# Install dependencies
 flutter pub get
 
-# تشغيل مولدات الكود (إذا لزم الأمر)
-flutter packages pub run build_runner build
-
-# تشغيل التطبيق
-flutter run
+# Check Flutter installation
+flutter doctor
 ```
 
-### الخطوة 5: إعداد Docker (اختياري) | Docker Setup (Optional)
-
+#### 2. تشغيل التطبيق | Run Application
 ```bash
-# تشغيل جميع الخدمات
-docker-compose up -d
+# Web development
+flutter run -d chrome
 
-# تشغيل الخدمات الأساسية فقط (قاعدة البيانات و Redis)
-docker-compose up -d postgres redis
+# Android emulator
+flutter run -d android
 
-# عرض سجلات الخدمات
-docker-compose logs -f
+# iOS simulator (macOS only)
+flutter run -d ios
 
-# إيقاف الخدمات
-docker-compose down
+# Specific device
+flutter devices
+flutter run -d <device-id>
 ```
 
-## هيكل المشروع | Project Structure
-
-### الخادم | Backend Structure
-```
-backend-api/
-├── src/
-│   ├── auth/                   # نظام المصادقة
-│   │   ├── auth.service.ts
-│   │   ├── auth.resolver.ts
-│   │   ├── auth.module.ts
-│   │   ├── dto/
-│   │   └── strategies/
-│   ├── users/                  # إدارة المستخدمين
-│   ├── specialties/            # التخصصات
-│   ├── requests/               # طلبات الخدمة
-│   ├── offers/                 # العروض
-│   ├── chat/                   # نظام المحادثة
-│   ├── ratings/                # التقييمات
-│   ├── payments/               # المدفوعات
-│   ├── common/                 # الأدوات المشتركة
-│   │   ├── guards/
-│   │   ├── decorators/
-│   │   ├── filters/
-│   │   └── pipes/
-│   ├── config/                 # إعدادات التطبيق
-│   ├── main.ts
-│   └── app.module.ts
-├── prisma/
-│   ├── schema.prisma           # مخطط قاعدة البيانات
-│   └── migrations/
-├── test/                       # الاختبارات
-├── package.json
-└── Dockerfile
-```
-
-### التطبيق المحمول | Mobile App Structure
-```
-mobile-app/
-├── lib/
-│   ├── screens/                # شاشات التطبيق
-│   │   ├── auth/
-│   │   ├── home/
-│   │   ├── map/
-│   │   ├── requests/
-│   │   ├── chat/
-│   │   └── profile/
-│   ├── widgets/                # العناصر المعاد استخدامها
-│   ├── services/               # خدمات API
-│   ├── models/                 # نماذج البيانات
-│   ├── providers/              # إدارة الحالة (Riverpod)
-│   ├── utils/                  # الوظائف المساعدة
-│   └── main.dart
-├── assets/
-│   ├── images/
-│   ├── icons/
-│   └── fonts/
-├── android/
-├── ios/
-└── pubspec.yaml
-```
-
-## إرشادات التطوير | Development Guidelines
-
-### معايير الكود | Code Standards
-
-#### للخادم (TypeScript/NestJS) | Backend (TypeScript/NestJS)
-- استخدم **PascalCase** للكلاسات والواجهات
-- استخدم **camelCase** للمتغيرات والوظائف
-- استخدم **kebab-case** لأسماء الملفات
-- أضف تعليقات JSDoc للوظائف العامة
-- استخدم TypeScript بدقة (strict mode)
-
-```typescript
-// مثال على كلاس Service
-@Injectable()
-export class UsersService {
-  constructor(private prisma: PrismaService) {}
-
-  /**
-   * البحث عن مستخدم بالمعرف
-   * @param id معرف المستخدم
-   * @returns بيانات المستخدم أو null
-   */
-  async findById(id: string): Promise<User | null> {
-    return this.prisma.user.findUnique({
-      where: { id },
-    });
-  }
-}
-```
-
-#### للتطبيق المحمول (Dart/Flutter) | Mobile App (Dart/Flutter)
-- استخدم **PascalCase** للكلاسات
-- استخدم **camelCase** للمتغيرات والوظائف
-- استخدم **snake_case** لأسماء الملفات
-- اتبع إرشادات Dart الرسمية
-- استخدم `const` كلما أمكن
-
-```dart
-// مثال على شاشة Flutter
-class HomeScreen extends ConsumerWidget {
-  const HomeScreen({super.key});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('الصفحة الرئيسية'),
-      ),
-      body: const Center(
-        child: Text('مرحباً بك في خبير الحي'),
-      ),
-    );
-  }
-}
-```
-
-### إدارة قاعدة البيانات | Database Management
-
-#### إضافة جدول جديد | Adding New Table
-1. تحديث `prisma/schema.prisma`
-2. إنشاء مايجريشن جديد:
+#### 3. بناء التطبيق | Build Application
 ```bash
-npx prisma migrate dev --name add_new_table
-```
-3. إنشاء Prisma Client جديد:
-```bash
-npx prisma generate
-```
+# Web build
+flutter build web
 
-#### تحديث جدول موجود | Updating Existing Table
-```bash
-# بعد تحديث schema.prisma
-npx prisma migrate dev --name update_table_name
-```
+# Android APK
+flutter build apk
 
-#### إعادة تعيين قاعدة البيانات | Reset Database
-```bash
-npx prisma migrate reset
+# Android App Bundle
+flutter build appbundle
+
+# iOS build
+flutter build ios
 ```
 
-### الاختبارات | Testing
+## 🧪 الاختبار | Testing
 
-#### اختبارات الخادم | Backend Tests
+### Backend Testing
 ```bash
-# اختبارات الوحدة
+cd backend-api
+
+# Run all tests
 npm run test
 
-# اختبارات التكامل
-npm run test:e2e
+# Run tests in watch mode
+npm run test:watch
 
-# تغطية الكود
+# Run tests with coverage
 npm run test:cov
 
-# اختبار ملف محدد
-npm run test -- users.service.spec.ts
+# Run e2e tests
+npm run test:e2e
+
+# Run specific test file
+npm run test -- auth.service.spec.ts
 ```
 
-#### اختبارات التطبيق المحمول | Mobile App Tests
+### Mobile App Testing
 ```bash
-# اختبارات الوحدة
+cd mobile-app
+
+# Run all tests
 flutter test
 
-# اختبارات التكامل
-flutter test integration_test/
-
-# اختبارات العناصر المرئية
+# Run tests with coverage
 flutter test --coverage
+
+# Run specific test file
+flutter test test/widget_test.dart
 ```
 
-### إدارة الحالة | State Management
+### API Testing
+```bash
+# Using GraphQL Playground
+# Visit: http://localhost:3000/graphql
 
-#### Riverpod Providers
-```dart
-// Provider للبيانات البسيطة
-final counterProvider = StateProvider<int>((ref) => 0);
-
-// Provider للبيانات المعقدة
-final userProvider = StateNotifierProvider<UserNotifier, User?>((ref) {
-  return UserNotifier();
-});
-
-// Provider للخدمات
-final apiServiceProvider = Provider<ApiService>((ref) {
-  return ApiService();
-});
-```
-
-### التعامل مع الأخطاء | Error Handling
-
-#### في الخادم | Backend Error Handling
-```typescript
-@Catch(HttpException)
-export class HttpExceptionFilter implements ExceptionFilter {
-  catch(exception: HttpException, host: ArgumentsHost) {
-    const ctx = host.switchToHttp();
-    const response = ctx.getResponse();
-    const status = exception.getStatus();
-
-    response.status(status).json({
-      statusCode: status,
-      message: exception.message,
-      timestamp: new Date().toISOString(),
-    });
+# Example queries:
+query {
+  specialties {
+    id
+    nameAr
+    nameEn
+    description
   }
 }
-```
 
-#### في التطبيق المحمول | Mobile App Error Handling
-```dart
-class ApiService {
-  Future<T> handleRequest<T>(Future<T> Function() request) async {
-    try {
-      return await request();
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 401) {
-        // إعادة توجيه لصفحة تسجيل الدخول
-        throw UnauthorizedException();
-      }
-      throw ApiException(e.message ?? 'خطأ في الشبكة');
+mutation {
+  register(input: {
+    email: "test@example.com"
+    phone: "+966501234567"
+    password: "123456"
+    firstName: "أحمد"
+    lastName: "محمد"
+    userType: CLIENT
+  }) {
+    token
+    user {
+      id
+      email
+      firstName
+      lastName
     }
   }
 }
 ```
 
-## أدوات مفيدة | Useful Tools
+## 📊 المراقبة والتحليل | Monitoring & Analytics
 
-### أدوات الخادم | Backend Tools
-- **Prisma Studio**: `npx prisma studio` - واجهة مرئية لقاعدة البيانات
-- **GraphQL Playground**: http://localhost:3000/graphql
-- **Postman/Insomnia**: لاختبار API
-- **Docker Desktop**: لإدارة الحاويات
-
-### أدوات التطبيق المحمول | Mobile App Tools
-- **Flutter Inspector**: في VS Code أو Android Studio
-- **Flutter DevTools**: أدوات تطوير متقدمة
-- **Flipper**: لتتبع الشبكة والتخزين المحلي
-
-## حل المشاكل الشائعة | Troubleshooting
-
-### مشاكل قاعدة البيانات | Database Issues
-
-#### خطأ في الاتصال بقاعدة البيانات:
+### Prometheus Metrics
 ```bash
-# تحقق من تشغيل PostgreSQL
-sudo systemctl status postgresql
+# Access Prometheus
+http://localhost:9090
 
-# إعادة تشغيل PostgreSQL
-sudo systemctl restart postgresql
+# Key metrics to monitor:
+# - Request rate per second
+# - Response time percentiles
+# - Error rate
+# - Resource usage (CPU, Memory, Disk)
 ```
 
-#### مشاكل في المايجريشن:
+### Grafana Dashboards
 ```bash
-# إعادة تعيين المايجريشن
-npx prisma migrate reset
+# Access Grafana
+http://localhost:3002
+# Username: admin
+# Password: admin123
 
-# إصلاح مشاكل المخطط
-npx prisma db push --force-reset
+# Available dashboards:
+# - User Activity Dashboard
+# - Request Performance Dashboard
+# - Business Metrics Dashboard
+# - System Health Dashboard
 ```
 
-### مشاكل Flutter | Flutter Issues
-
-#### مشاكل التبعيات:
+### Application Logs
 ```bash
-# تنظيف وإعادة تثبيت التبعيات
+# View all logs
+docker-compose logs -f
+
+# View specific service logs
+docker-compose logs -f backend
+docker-compose logs -f mobile-web
+docker-compose logs -f postgres
+```
+
+## 🔒 الأمان | Security
+
+### Environment Variables
+```bash
+# Never commit sensitive data
+# Use .env.example for reference
+# Update .env with your actual values
+
+# Required variables:
+DATABASE_URL=postgresql://user:password@localhost:5432/db
+JWT_SECRET=your-super-secret-jwt-key
+REDIS_URL=redis://localhost:6379
+```
+
+### Authentication & Authorization
+```bash
+# JWT tokens are automatically handled
+# Admin routes are protected with AdminGuard
+# User-specific routes check ownership
+
+# Test admin access:
+# Login as admin user first
+# Use the returned JWT token in Authorization header
+```
+
+### Database Security
+```bash
+# Use parameterized queries (Prisma handles this)
+# Implement row-level security if needed
+# Regular security updates for PostgreSQL
+```
+
+## 🚀 النشر | Deployment
+
+### Development Deployment
+```bash
+# Current setup is development-focused
+# Services run in Docker containers
+# Database persists in Docker volumes
+```
+
+### Production Deployment
+```bash
+# Create production docker-compose file
+docker-compose -f docker-compose.prod.yml up -d
+
+# Set production environment variables
+# Configure SSL/HTTPS
+# Set up monitoring and alerting
+# Implement backup strategies
+```
+
+### CI/CD Pipeline
+```bash
+# GitHub Actions workflow
+# Automatic testing on push
+# Build and deploy on merge to main
+# Environment-specific deployments
+```
+
+## 🐛 استكشاف الأخطاء | Troubleshooting
+
+### Common Issues
+
+#### 1. Database Connection Issues
+```bash
+# Check if PostgreSQL is running
+docker ps | grep postgres
+
+# Check database logs
+docker-compose logs postgres
+
+# Test connection
+docker exec khabeer_postgres pg_isready -U khabeer_user -d khabeer_al_hay
+```
+
+#### 2. Port Conflicts
+```bash
+# Check what's using the ports
+lsof -i :3000
+lsof -i :8080
+lsof -i :5432
+
+# Stop conflicting services or change ports in docker-compose.yml
+```
+
+#### 3. Flutter Build Issues
+```bash
+# Clean Flutter build
 flutter clean
 flutter pub get
 
-# إعادة إنشاء الملفات المولدة
-flutter packages pub run build_runner clean
-flutter packages pub run build_runner build --delete-conflicting-outputs
+# Check Flutter version
+flutter --version
+
+# Update Flutter
+flutter upgrade
 ```
 
-#### مشاكل الجهاز المحاكي:
+#### 4. Node.js Issues
 ```bash
-# عرض الأجهزة المتاحة
-flutter devices
+# Clear npm cache
+npm cache clean --force
 
-# تشغيل على جهاز محدد
-flutter run -d <device-id>
+# Remove node_modules and reinstall
+rm -rf node_modules package-lock.json
+npm install
+
+# Check Node.js version
+node --version
 ```
 
-### مشاكل Docker | Docker Issues
-
-#### مسح الحاويات والصور:
+### Debug Mode
 ```bash
-# إيقاف جميع الحاويات
-docker stop $(docker ps -aq)
+# Backend debug
+npm run start:debug
 
-# مسح جميع الحاويات
-docker rm $(docker ps -aq)
+# Flutter debug
+flutter run -d chrome --debug
 
-# مسح الصور غير المستخدمة
-docker system prune -a
+# Database debug
+# Enable query logging in Prisma
+# Add to .env: DEBUG="prisma:*"
 ```
 
-## المساهمة | Contributing
+## 📚 الموارد | Resources
 
-### سير العمل | Workflow
-1. إنشاء branch جديد من `develop`
-2. تطوير الميزة أو إصلاح الخطأ
-3. كتابة الاختبارات
-4. تشغيل جميع الاختبارات
-5. إنشاء Pull Request
+### Documentation
+- [NestJS Documentation](https://docs.nestjs.com/)
+- [Flutter Documentation](https://flutter.dev/docs)
+- [Prisma Documentation](https://www.prisma.io/docs/)
+- [GraphQL Documentation](https://graphql.org/learn/)
 
-### معايير Pull Request
-- وصف واضح للتغييرات
-- اختبارات شاملة
-- توثيق للميزات الجديدة
-- مراجعة الكود من عضوين على الأقل
+### Community
+- [NestJS Discord](https://discord.gg/nestjs)
+- [Flutter Community](https://flutter.dev/community)
+- [Prisma Community](https://www.prisma.io/community)
 
-### رسائل Commit
-استخدم التنسيق التالي:
+### Tools
+- [GraphQL Playground](http://localhost:3000/graphql)
+- [Prisma Studio](http://localhost:5555)
+- [Grafana](http://localhost:3002)
+- [Prometheus](http://localhost:9090)
+
+## 🤝 المساهمة | Contributing
+
+### Code Style
+```bash
+# Backend (NestJS)
+npm run format        # Prettier formatting
+npm run lint          # ESLint checking
+
+# Mobile App (Flutter)
+flutter analyze       # Dart analysis
+flutter format        # Dart formatting
 ```
-نوع: وصف مختصر
 
-وصف تفصيلي إذا لزم الأمر
+### Git Workflow
+```bash
+# Create feature branch
+git checkout -b feature/amazing-feature
 
-Closes #123
+# Make changes and commit
+git add .
+git commit -m "feat: add amazing feature"
+
+# Push and create PR
+git push origin feature/amazing-feature
 ```
 
-أنواع Commit:
-- `feat`: ميزة جديدة
-- `fix`: إصلاح خطأ
-- `docs`: تحديث التوثيق
-- `style`: تغييرات التنسيق
-- `refactor`: إعادة هيكلة الكود
-- `test`: إضافة اختبارات
-- `chore`: مهام صيانة
+### Testing Requirements
+- All new features must have tests
+- Maintain test coverage above 80%
+- Run tests before committing
+- Update documentation for new features
 
 ---
 
-للمساعدة أو الاستفسارات، يرجى فتح issue في GitHub أو التواصل مع فريق التطوير.
+## 📞 الدعم | Support
+
+إذا واجهت أي مشكلة أو لديك سؤال:
+
+If you encounter any issues or have questions:
+
+- **Create an Issue**: [GitHub Issues](../../issues)
+- **Email**: dev-support@khabeer-al-hay.com
+- **Documentation**: [Project Docs](./README.md)
+
+---
+
+**"معاً نطور مستقبل الصيانة المنزلية"** 🏠✨
+
+**"Together we develop the future of home maintenance"** 🏠✨
